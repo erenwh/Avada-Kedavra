@@ -9,119 +9,132 @@ using System.Text;
 using System.Threading;
 using UnityEngine;
 
-namespace AirSig {
-    public class AirSigManager : MonoBehaviour {
+namespace AirSig
+{
+	public class AirSigManager : MonoBehaviour
+	{
 
-        /// Enable debug logging
-        public static bool DEBUG_LOG_ENABLED = true;
+		public bool isHeart = false;
+		public bool isC = false;
+		public bool isDown = false;
 
-        // Default interval for sensor sampling rate.
-        // Increasing this makes less sample for a fixed period of time
-        private const float MIN_INTERVAL = 16f;
+		/// Enable debug logging
+		public static bool DEBUG_LOG_ENABLED = true;
 
-        /// Threshold score for a common gesture to be considered pass
-        public const int COMMON_MISTOUCH_THRESHOLD = 30; //0.5sec (1 sec is about 60)
-        public const float COMMON_PASS_THRESHOLD = 0.9f;
-        public const float SMART_TRAIN_PASS_THRESHOLD = 0.8f;
+		// Default interval for sensor sampling rate.
+		// Increasing this makes less sample for a fixed period of time
+		private const float MIN_INTERVAL = 16f;
 
-        /// Threshold for engine
-        public const float THRESHOLD_TRAINING_MATCH_THRESHOLD = 0.98f;
-        public const float THRESHOLD_VERIFY_MATCH_THRESHOLD = 0.98f;
-        public const float THRESHOLD_IS_TWO_GESTURE_SIMILAR = 1.0f;
+		/// Threshold score for a common gesture to be considered pass
+		public const int COMMON_MISTOUCH_THRESHOLD = 30; //0.5sec (1 sec is about 60)
+		public const float COMMON_PASS_THRESHOLD = 0.9f;
+		public const float SMART_TRAIN_PASS_THRESHOLD = 0.8f;
 
-        /// Identification/Training mode
-        public enum Mode : int {
-            None = 0x00, // will not perform any identification`
-            IdentifyPlayerSignature = 0x02, // will perform user defined gesture identification
-            DeveloperDefined = 0x08, // will perform predefined common identification
-            TrainPlayerSignature = 0x10, // will perform training of a specific target
-            AddPlayerGesture = 0x40,
-            IdentifyPlayerGesture = 0x80,
-            SmartTrainDeveloperDefined = 0x100,
-            SmartIdentifyDeveloperDefined = 0x200
-        };
+		/// Threshold for engine
+		public const float THRESHOLD_TRAINING_MATCH_THRESHOLD = 0.98f;
+		public const float THRESHOLD_VERIFY_MATCH_THRESHOLD = 0.98f;
+		public const float THRESHOLD_IS_TWO_GESTURE_SIMILAR = 1.0f;
 
-        /// Errors used in OnPlayerSignatureTrained callback
-        public class Error {
+		/// Identification/Training mode
+		public enum Mode : int
+		{
+			None = 0x00, // will not perform any identification`
+			IdentifyPlayerSignature = 0x02, // will perform user defined gesture identification
+			DeveloperDefined = 0x08, // will perform predefined common identification
+			TrainPlayerSignature = 0x10, // will perform training of a specific target
+			AddPlayerGesture = 0x40,
+			IdentifyPlayerGesture = 0x80,
+			SmartTrainDeveloperDefined = 0x100,
+			SmartIdentifyDeveloperDefined = 0x200
+		};
 
-            public static readonly int SIGN_TOO_FEW_WORD = -204;
-            public static readonly int SIGN_WITH_MISTOUCH = -200;
+		/// Errors used in OnPlayerSignatureTrained callback
+		public class Error
+		{
 
-            public int code;
-            public String message;
+			public static readonly int SIGN_TOO_FEW_WORD = -204;
+			public static readonly int SIGN_WITH_MISTOUCH = -200;
 
-            public Error(int errorCode, String message) {
-                this.code = errorCode;
-                this.message = message;
-            }
-        }
+			public int code;
+			public String message;
 
-        /// Strength used in OnPlayerSignatureTrained callback
-        public enum SecurityLevel : int {
-            None = 0,
-            Very_Poor = 1,
-            Poor = 2,
-            Normal = 3,
-            High = 4,
-            Very_High = 5
-        }
+			public Error(int errorCode, String message)
+			{
+				this.code = errorCode;
+				this.message = message;
+			}
+		}
 
-        // Mode of operation
-        private Mode mCurrentMode = Mode.None;
+		/// Strength used in OnPlayerSignatureTrained callback
+		public enum SecurityLevel : int
+		{
+			None = 0,
+			Very_Poor = 1,
+			Poor = 2,
+			Normal = 3,
+			High = 4,
+			Very_High = 5
+		}
 
-        // Current target for 
-        private List<int> mCurrentTarget = new List<int>();
-        private List<string> mCurrentPredefined = new List<string>();
-        private string mClassifier;
-        private string mSubClassifier;
-        private string FullClassifierPath {
-            get { return mClassifier + "_" + mSubClassifier; }
-        }
-        private bool IsValidClassifier {
-            get { return mClassifier != null && mClassifier.Length > 0 && mSubClassifier != null; }
-        }
+		// Mode of operation
+		private Mode mCurrentMode = Mode.None;
 
-        // Keep the current instance
-        private static AirSigManager sInstance;
+		// Current target for 
+		private List<int> mCurrentTarget = new List<int>();
+		private List<string> mCurrentPredefined = new List<string>();
+		private string mClassifier;
+		private string mSubClassifier;
+		private string FullClassifierPath
+		{
+			get { return mClassifier + "_" + mSubClassifier; }
+		}
+		private bool IsValidClassifier
+		{
+			get { return mClassifier != null && mClassifier.Length > 0 && mSubClassifier != null; }
+		}
 
-        /// Event handler for receiving common gesture matching result
-        public delegate void OnGestureDrawStart(bool start);
-        public event OnGestureDrawStart onGestureDrawStart;
+		// Keep the current instance
+		private static AirSigManager sInstance;
 
-        /// Event handler for receiving custom predefined gesture matching result
-        public delegate void OnDeveloperDefinedMatch(long gestureId, string gesture, float score);
-        public event OnDeveloperDefinedMatch onDeveloperDefinedMatch;
+		/// Event handler for receiving common gesture matching result
+		public delegate void OnGestureDrawStart(bool start);
+		public event OnGestureDrawStart onGestureDrawStart;
 
-        /// Event handler for receiving user gesture matching result
-        public delegate void OnPlayerSignatureMatch(long gestureId, bool match, int targetIndex);
-        public event OnPlayerSignatureMatch onPlayerSignatureMatch;
+		/// Event handler for receiving custom predefined gesture matching result
+		public delegate void OnDeveloperDefinedMatch(long gestureId, string gesture, float score);
+		public event OnDeveloperDefinedMatch onDeveloperDefinedMatch;
 
-        /// Event handler for receiving smart identify of predefined gesture matching result
-        public delegate void OnSmartIdentifyDeveloperDefinedMatch(long gestureId, string gesture);
-        public event OnSmartIdentifyDeveloperDefinedMatch onSmartIdentifyDeveloperDefinedMatch;
+		/// Event handler for receiving user gesture matching result
+		public delegate void OnPlayerSignatureMatch(long gestureId, bool match, int targetIndex);
+		public event OnPlayerSignatureMatch onPlayerSignatureMatch;
 
-        /// Event handler for receiving triggering of a gesture
-        public class GestureTriggerEventArgs : EventArgs {
-            public bool Continue { get; set; }
-            public Mode Mode { get; set; }
-            public List<int> Targets { get; set; }
-        }
-        public delegate void OnGestureTriggered(long gestureId, GestureTriggerEventArgs eventArgs);
-        public event OnGestureTriggered onGestureTriggered;
+		/// Event handler for receiving smart identify of predefined gesture matching result
+		public delegate void OnSmartIdentifyDeveloperDefinedMatch(long gestureId, string gesture);
+		public event OnSmartIdentifyDeveloperDefinedMatch onSmartIdentifyDeveloperDefinedMatch;
 
-        /// Event handler for receiving training result
-        public delegate void OnPlayerSignatureTrained(long gestureId, Error error, float progress, SecurityLevel securityLevel);
-        public event OnPlayerSignatureTrained onPlayerSignatureTrained;
+		/// Event handler for receiving triggering of a gesture
+		public class GestureTriggerEventArgs : EventArgs
+		{
+			public bool Continue { get; set; }
+			public Mode Mode { get; set; }
+			public List<int> Targets { get; set; }
+		}
+		public delegate void OnGestureTriggered(long gestureId, GestureTriggerEventArgs eventArgs);
+		public event OnGestureTriggered onGestureTriggered;
 
-        /// Event handler for receiving custom gesture result
-        public delegate void OnPlayerGestureAdd(long gestureId, Dictionary<int, int> count);
-        public event OnPlayerGestureAdd onPlayerGestureAdd;
+		/// Event handler for receiving training result
+		public delegate void OnPlayerSignatureTrained(long gestureId, Error error, float progress, SecurityLevel securityLevel);
+		public event OnPlayerSignatureTrained onPlayerSignatureTrained;
 
-        /// Event handler for receiving custom gesture result
-        public delegate void OnPlayerGestureMatch(long gestureId, int match);
-        public event OnPlayerGestureMatch onPlayerGestureMatch;
+		/// Event handler for receiving custom gesture result
+		public delegate void OnPlayerGestureAdd(long gestureId, Dictionary<int, int> count);
+		public event OnPlayerGestureAdd onPlayerGestureAdd;
 
-        //static Thread mainThread = Thread.CurrentThread;
+		/// Event handler for receiving custom gesture result
+		public delegate void OnPlayerGestureMatch(long gestureId, int match);
+		public event OnPlayerGestureMatch onPlayerGestureMatch;
+
+		//static Thread mainThread = Thread.CurrentThread;
 
 #if UNITY_ANDROID
         // ========================================================================
@@ -243,23 +256,24 @@ namespace AirSig {
         // ========================================================================
 #endif
 
-        // Use to get ID of a gesture
-        private static readonly DateTime InitTime = DateTime.UtcNow;
-        private static long GetCurrentGestureID() {
-            return (long)(DateTime.UtcNow - InitTime).TotalMilliseconds;
-        }
+		// Use to get ID of a gesture
+		private static readonly DateTime InitTime = DateTime.UtcNow;
+		private static long GetCurrentGestureID()
+		{
+			return (long)(DateTime.UtcNow - InitTime).TotalMilliseconds;
+		}
 
-        // Train fail accumlative Count
-        private int mTrainFailCount = 0;
+		// Train fail accumlative Count
+		private int mTrainFailCount = 0;
 
-        // security level too low count
-        private static int mSecurityTooLowCount = 0;
+		// security level too low count
+		private static int mSecurityTooLowCount = 0;
 
-        // New training API
-        private const int TRAINING_STEP = 5;
-        //private float[] mTrainingProgress = new float[TRAINING_STEP] {
-        //    0.2f, 0.4f, 0.6f, 0.8f, 1.0f
-        //};
+		// New training API
+		private const int TRAINING_STEP = 5;
+		//private float[] mTrainingProgress = new float[TRAINING_STEP] {
+		//    0.2f, 0.4f, 0.6f, 0.8f, 1.0f
+		//};
 
 #if UNITY_ANDROID
         // ========================================================================
@@ -275,8 +289,8 @@ namespace AirSig {
         // ========================================================================
 #endif
 
-        // Cache for recent used sensor data
-        private const int CACHE_SIZE = 10;
+		// Cache for recent used sensor data
+		private const int CACHE_SIZE = 10;
 #if UNITY_ANDROID
         // ========================================================================
         // Android
@@ -291,29 +305,30 @@ namespace AirSig {
         // ========================================================================
 #endif
 
-        // Data structure for saving current training status
-        private TrainData mTrainData = new TrainData();
-        //private bool mHasTrainDataChanged = false;
+		// Data structure for saving current training status
+		private TrainData mTrainData = new TrainData();
+		//private bool mHasTrainDataChanged = false;
 
-        // To handle short signature when setup 
-        private static int mFirstTrainDataSize = 0;
-        private const float TRAIN_DATA_THRESHOLD_RATIO = 0.65f;
+		// To handle short signature when setup 
+		private static int mFirstTrainDataSize = 0;
+		private const float TRAIN_DATA_THRESHOLD_RATIO = 0.65f;
 
-        // Custom gesture result
-        public class CustomGestureResult<T> {
-            public T bestMatch;
-            public float confidence;
-        }
+		// Custom gesture result
+		public class CustomGestureResult<T>
+		{
+			public T bestMatch;
+			public float confidence;
+		}
 
 
-        // Cache for AddPlayerGesture, where int is actionIndex and List<float[]> is sensorData
+		// Cache for AddPlayerGesture, where int is actionIndex and List<float[]> is sensorData
 #if UNITY_ANDROID
 		private Dictionary<int, List<AndroidJavaObject>> mCustomGestureCache = new Dictionary<int, List<AndroidJavaObject>>();
 #elif UNITY_STANDALONE_WIN
         private Dictionary<int, List<float[]>> mCustomGestureCache = new Dictionary<int, List<float[]>>();
 #endif
 
-        // Smart training sensor data of a same target
+		// Smart training sensor data of a same target
 #if UNITY_ANDROID
         // ========================================================================
         // Android implementation
@@ -364,7 +379,7 @@ namespace AirSig {
         // ========================================================================
 #endif
 
-        // For storing smart identify result
+		// For storing smart identify result
 #if UNITY_ANDROID
         // ========================================================================
         // Android implementation
@@ -421,56 +436,66 @@ namespace AirSig {
         }
         // ========================================================================
 #endif
-        // For internal algorithm picking proirity
-        private class ErrorCount {
-            public int commonErrCount = 0;
-            public int userErrCount= 0;
-        }
+		// For internal algorithm picking proirity
+		private class ErrorCount
+		{
+			public int commonErrCount = 0;
+			public int userErrCount = 0;
+		}
 
-        private class Confidence {
-            public float commonConfidence = 0;
-            public float userConfidence = 0;
-        }
+		private class Confidence
+		{
+			public float commonConfidence = 0;
+			public float userConfidence = 0;
+		}
 
-        // Store all Smart Gesture's error count stat
-        private class CommonSmartGestureStat {
-            public bool isStatExist = false;
-            public Dictionary<int, ErrorCount> gestureStat = new Dictionary<int, ErrorCount>();
-            public Dictionary<int, Confidence> gestureConf = new Dictionary<int, Confidence>();
+		// Store all Smart Gesture's error count stat
+		private class CommonSmartGestureStat
+		{
+			public bool isStatExist = false;
+			public Dictionary<int, ErrorCount> gestureStat = new Dictionary<int, ErrorCount>();
+			public Dictionary<int, Confidence> gestureConf = new Dictionary<int, Confidence>();
 
-            public void checkThenAdd(int index) {
-                if( ! gestureStat.ContainsKey(index)) {
-                    gestureStat[index] = new ErrorCount();
-                }
-                if( ! gestureConf.ContainsKey(index)) {
-                    gestureConf[index] = new Confidence();
-                }
-            }
-        }
-        private CommonSmartGestureStat mCommonGestureStat = new CommonSmartGestureStat();
-        //private bool mIsGestureStatExist = false;
-        //private Dictionary<int, ErrorCount> mGestureStat = new Dictionary<int, ErrorCount>();
+			public void checkThenAdd(int index)
+			{
+				if (!gestureStat.ContainsKey(index))
+				{
+					gestureStat[index] = new ErrorCount();
+				}
+				if (!gestureConf.ContainsKey(index))
+				{
+					gestureConf[index] = new Confidence();
+				}
+			}
+		}
+		private CommonSmartGestureStat mCommonGestureStat = new CommonSmartGestureStat();
+		//private bool mIsGestureStatExist = false;
+		//private Dictionary<int, ErrorCount> mGestureStat = new Dictionary<int, ErrorCount>();
 
-        private class PredefinedSmartGestureStat {
-            public bool isStatExist = false;
-            public Dictionary<string, ErrorCount> gestureStat = new Dictionary<string, ErrorCount>();
-            public Dictionary<string, Confidence> gestureConf = new Dictionary<string, Confidence>();
+		private class PredefinedSmartGestureStat
+		{
+			public bool isStatExist = false;
+			public Dictionary<string, ErrorCount> gestureStat = new Dictionary<string, ErrorCount>();
+			public Dictionary<string, Confidence> gestureConf = new Dictionary<string, Confidence>();
 
-            public void checkThenAdd(string index) {
-                if (!gestureStat.ContainsKey(index)) {
-                    gestureStat[index] = new ErrorCount();
-                }
-                if (!gestureConf.ContainsKey(index)) {
-                    gestureConf[index] = new Confidence();
-                }
-            }
-        }
-        private Dictionary<string, PredefinedSmartGestureStat> mPredGestureStatDict = new Dictionary<string, PredefinedSmartGestureStat>();
-        //private PredefinedSmartGestureStat mPredGestureStat = new PredefinedSmartGestureStat();
-        //private bool mIsPredefinedGestureStatExist = false;
-        //private Dictionary<string, ErrorCount> mPredefinedGestureStat = new Dictionary<string, ErrorCount>();
+			public void checkThenAdd(string index)
+			{
+				if (!gestureStat.ContainsKey(index))
+				{
+					gestureStat[index] = new ErrorCount();
+				}
+				if (!gestureConf.ContainsKey(index))
+				{
+					gestureConf[index] = new Confidence();
+				}
+			}
+		}
+		private Dictionary<string, PredefinedSmartGestureStat> mPredGestureStatDict = new Dictionary<string, PredefinedSmartGestureStat>();
+		//private PredefinedSmartGestureStat mPredGestureStat = new PredefinedSmartGestureStat();
+		//private bool mIsPredefinedGestureStatExist = false;
+		//private Dictionary<string, ErrorCount> mPredefinedGestureStat = new Dictionary<string, ErrorCount>();
 
-        // Store all cache of smart training
+		// Store all cache of smart training
 #if UNITY_ANDROID
         // ========================================================================
         // Android
@@ -485,7 +510,7 @@ namespace AirSig {
         // ========================================================================
 #endif
 
-        
+
 
 #if UNITY_ANDROID
 		// ====================================================================
@@ -590,18 +615,21 @@ namespace AirSig {
         // ====================================================================
 #endif
 
-        private float mNotifyScoreThreshold = -0.5f;
-        /// The minimum score value for common gesture to notify the receiver
-        public float NotifyScoreThreshold {
-            get {
-                return mNotifyScoreThreshold;
-            }
-            set {
-                mNotifyScoreThreshold = value;
-            }
-        }
+		private float mNotifyScoreThreshold = -0.5f;
+		/// The minimum score value for common gesture to notify the receiver
+		public float NotifyScoreThreshold
+		{
+			get
+			{
+				return mNotifyScoreThreshold;
+			}
+			set
+			{
+				mNotifyScoreThreshold = value;
+			}
+		}
 
-        /// The minimum touch interval to trigger a gesture recognization
+		/// The minimum touch interval to trigger a gesture recognization
 #if UNITY_ANDROID
 		public long MinimumTouchInterval {
 			get {
@@ -643,7 +671,7 @@ namespace AirSig {
         
 #endif
 
-        /// Set and get for continuous recognization using pause interval for break
+		/// Set and get for continuous recognization using pause interval for break
 #if UNITY_ANDROID
 		public bool ContinuousRecognizeEnabled {
 			get {
@@ -668,16 +696,19 @@ namespace AirSig {
         // }
 #endif
 
-        /// Set and get for allowing click while collecting sensor samples
-        public bool AllowTouchPadClick {
-            get {
+		/// Set and get for allowing click while collecting sensor samples
+		public bool AllowTouchPadClick
+		{
+			get
+			{
 #if UNITY_ANDROID
 				return getControlManagerInstance().Call<bool>("isAllowTouchpadClick"); 
 #elif UNITY_STANDALONE_WIN
                 return true;
 #endif
-            }
-            set {
+			}
+			set
+			{
 #if UNITY_ANDROID
 				object[] arglist = new object[1];
 				arglist[0] = value;
@@ -687,10 +718,10 @@ namespace AirSig {
                 // arglist[0] = value;
                 // getControlManagerInstance().Call("setAllowTouchpadClick", arglist);
 #endif
-            }
-        }
+			}
+		}
 
-        /// Set and get for thumb off touch pad touch pad tolerance
+		/// Set and get for thumb off touch pad touch pad tolerance
 #if UNITY_ANDROID
 		public long TouchPadTolerance {
 			get {
@@ -737,11 +768,13 @@ namespace AirSig {
         // }
 #endif
 
-        public bool IsLowSecureSignature {
-            get {
-                return mSecurityTooLowCount > 2;
-            }
-        }
+		public bool IsLowSecureSignature
+		{
+			get
+			{
+				return mSecurityTooLowCount > 2;
+			}
+		}
 
 #if UNITY_ANDROID
 		private Quaternion mLastTouchRotation;
@@ -772,7 +805,7 @@ namespace AirSig {
         }
 #endif
 
-        // Receiver for Daydream controller
+		// Receiver for Daydream controller
 #if UNITY_ANDROID
         // ========================================================================
         // Android Implementation
@@ -834,8 +867,9 @@ namespace AirSig {
         // ==================================================================================
 #endif
 
-        /// Delete a trained player's gesture or signature
-        public void DeletePlayerRecord(int targetIndex) {
+		/// Delete a trained player's gesture or signature
+		public void DeletePlayerRecord(int targetIndex)
+		{
 #if UNITY_ANDROID
             // ====================================================================
             // Android implementation
@@ -851,7 +885,7 @@ namespace AirSig {
             DeleteAction(viveControllerHelper, targetIndex);
             // ====================================================================
 #endif
-        }
+		}
 
 #if UNITY_ANDROID
         // ========================================================================
@@ -1484,84 +1518,84 @@ namespace AirSig {
         }
         // ========================================================================
 #endif
-        // private void SmartTrainUserGesture2(SmartTrainActionBundle bundle) {
-        // 	if(DEBUG_LOG_ENABLED) Debug.Log(string.Format("[AirSigManager][SmartTrain] targetIndex:{0} nextIndex:{1} progress:{2}",
-        // 		bundle.targetIndex, bundle.nextIndex, bundle.progress));
-        // 	if(bundle.nextIndex >= 0 && bundle.progress < 1f) {
-        // 		// only we have more and progress is not completed so should we continue
-        // 		AndroidJavaObject sensorData = bundle.cache[bundle.nextIndex];
-        // 		bundle.nextIndex --;
-        // 		TrainUserGesture(0, bundle.targetIndex, sensorData, SmartTrainUserGesture2, bundle);
-        // 	}
-        // 	else {
-        // 		if(bundle.progress >= 1f) {
-        // 			if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] we've done training~ grat!");
-        // 			// Trained fine but we need verify against other trained data in order to let use of 'user gesture'
-        // 			AndroidJavaObject sensorData = bundle.cache[bundle.cache.Count - 1]; // use last piece of data
-        // 			if(null != sensorData) {
-        // 				Dictionary<int, bool>.KeyCollection keyColl = mTrainData.useUserGesture.Keys;
-        // 				if(keyColl.Count > 0) {
-        // 					if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] check with other user gesture - keyColl: " + string.Join(",", keyColl.Select(x => x.ToString()).ToArray()));
-        // 					// Verify first before we set to use "user gesture"
-        // 					int[] againstIndex = new int[keyColl.Count];
-        // 					keyColl.CopyTo(againstIndex, 0);
-        // 					againstIndex = againstIndex.Where(val => val != bundle.targetIndex).ToArray();
-        // 					IdentifyUserGesture(0, sensorData, againstIndex, SmartTrainUserGestureAndVerify, new IdentifyActionBundle(0, bundle.targetIndex, null), true);
-        // 				}
-        // 				else {
-        // 					if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] no other user gesture to compare, just add 'user gesture' of index:" + bundle.targetIndex);
-        // 					// No Key exist, just make this gesture to use "user gesture"
-        // 					mTrainData.useUserGesture.Add(bundle.targetIndex, true);
-        // 				}
-        // 			}
-        // 		}
-        // 		else if(bundle.nextIndex < 0) {
-        // 			if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] run out of sensor data! quit SmartTrain process!");
-        // 			// Failed to train so let's remove 'use user gesture' flag for this index
-        // 			mTrainData.useUserGesture.Remove(bundle.targetIndex);
-        // 			mHasTrainDataChanged = true;
-        // 		}
-        // 		else {
-        // 			if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] unexpected situation here!");
-        // 		}
-        // 	}
-        // }
+		// private void SmartTrainUserGesture2(SmartTrainActionBundle bundle) {
+		// 	if(DEBUG_LOG_ENABLED) Debug.Log(string.Format("[AirSigManager][SmartTrain] targetIndex:{0} nextIndex:{1} progress:{2}",
+		// 		bundle.targetIndex, bundle.nextIndex, bundle.progress));
+		// 	if(bundle.nextIndex >= 0 && bundle.progress < 1f) {
+		// 		// only we have more and progress is not completed so should we continue
+		// 		AndroidJavaObject sensorData = bundle.cache[bundle.nextIndex];
+		// 		bundle.nextIndex --;
+		// 		TrainUserGesture(0, bundle.targetIndex, sensorData, SmartTrainUserGesture2, bundle);
+		// 	}
+		// 	else {
+		// 		if(bundle.progress >= 1f) {
+		// 			if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] we've done training~ grat!");
+		// 			// Trained fine but we need verify against other trained data in order to let use of 'user gesture'
+		// 			AndroidJavaObject sensorData = bundle.cache[bundle.cache.Count - 1]; // use last piece of data
+		// 			if(null != sensorData) {
+		// 				Dictionary<int, bool>.KeyCollection keyColl = mTrainData.useUserGesture.Keys;
+		// 				if(keyColl.Count > 0) {
+		// 					if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] check with other user gesture - keyColl: " + string.Join(",", keyColl.Select(x => x.ToString()).ToArray()));
+		// 					// Verify first before we set to use "user gesture"
+		// 					int[] againstIndex = new int[keyColl.Count];
+		// 					keyColl.CopyTo(againstIndex, 0);
+		// 					againstIndex = againstIndex.Where(val => val != bundle.targetIndex).ToArray();
+		// 					IdentifyUserGesture(0, sensorData, againstIndex, SmartTrainUserGestureAndVerify, new IdentifyActionBundle(0, bundle.targetIndex, null), true);
+		// 				}
+		// 				else {
+		// 					if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] no other user gesture to compare, just add 'user gesture' of index:" + bundle.targetIndex);
+		// 					// No Key exist, just make this gesture to use "user gesture"
+		// 					mTrainData.useUserGesture.Add(bundle.targetIndex, true);
+		// 				}
+		// 			}
+		// 		}
+		// 		else if(bundle.nextIndex < 0) {
+		// 			if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] run out of sensor data! quit SmartTrain process!");
+		// 			// Failed to train so let's remove 'use user gesture' flag for this index
+		// 			mTrainData.useUserGesture.Remove(bundle.targetIndex);
+		// 			mHasTrainDataChanged = true;
+		// 		}
+		// 		else {
+		// 			if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] unexpected situation here!");
+		// 		}
+		// 	}
+		// }
 
-        // private void SmartTrainUserGestureAndVerify(IdentifyActionBundle bundle) {
-        // 	if(bundle.matchIndex >= 0) {
-        // 		if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] confliction of 'user gesture' and found - matchIndex:" + bundle.matchIndex + " AND basedIndex:" + bundle.basedIndex);
-        // 		if(bundle.matchIndex != bundle.basedIndex) {
-        // 			if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] This index will NOT be added due to confliction");
-        // 			// We have conflict, not to add this index
-        // 			// mTrainData.useUserGesture.Remove(bundle.matchIndex);
-        // 			mTrainData.useUserGesture.Remove(bundle.basedIndex);
-        // 			mHasTrainDataChanged = true;
-        // 		}
-        // 		else {
-        // 			if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] Same index... keep it");
-        // 		}
-        // 	}
-        // 	else {
-        // 		if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] verify and no confliction found, add basedIndex:" + bundle.basedIndex);
-        // 		mTrainData.useUserGesture[bundle.basedIndex] = true;
-        // 		mHasTrainDataChanged = true;
-        // 	}
-        // }
+		// private void SmartTrainUserGestureAndVerify(IdentifyActionBundle bundle) {
+		// 	if(bundle.matchIndex >= 0) {
+		// 		if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] confliction of 'user gesture' and found - matchIndex:" + bundle.matchIndex + " AND basedIndex:" + bundle.basedIndex);
+		// 		if(bundle.matchIndex != bundle.basedIndex) {
+		// 			if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] This index will NOT be added due to confliction");
+		// 			// We have conflict, not to add this index
+		// 			// mTrainData.useUserGesture.Remove(bundle.matchIndex);
+		// 			mTrainData.useUserGesture.Remove(bundle.basedIndex);
+		// 			mHasTrainDataChanged = true;
+		// 		}
+		// 		else {
+		// 			if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] Same index... keep it");
+		// 		}
+		// 	}
+		// 	else {
+		// 		if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartTrain] verify and no confliction found, add basedIndex:" + bundle.basedIndex);
+		// 		mTrainData.useUserGesture[bundle.basedIndex] = true;
+		// 		mHasTrainDataChanged = true;
+		// 	}
+		// }
 
-        // private void SmartUserIdentifyResult(IdentifyActionBundle bundle) {
-        // 	if(null != bundle) {
-        // 		if(bundle.matchIndex > (int)CommonGesture._Start) {
-        // 			if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartIdentify] user identify ID:" + bundle.id +", matchIndex:" + bundle.matchIndex);
-        // 			sInstance.onSmartIdentifyMatch(bundle.id, (CommonGesture)bundle.matchIndex);
-        // 			mTrainData.IncUserGestureCount(bundle.basedIndex);
-        // 		}
-        // 		else {
-        // 			if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartIdentify] no user gesture match!");
-        // 			sInstance.onSmartIdentifyMatch(bundle.id, CommonGesture.None);
-        // 			mTrainData.IncFailedGestureCount(bundle.basedIndex);
-        // 		}
-        // 	}
-        // }
+		// private void SmartUserIdentifyResult(IdentifyActionBundle bundle) {
+		// 	if(null != bundle) {
+		// 		if(bundle.matchIndex > (int)CommonGesture._Start) {
+		// 			if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartIdentify] user identify ID:" + bundle.id +", matchIndex:" + bundle.matchIndex);
+		// 			sInstance.onSmartIdentifyMatch(bundle.id, (CommonGesture)bundle.matchIndex);
+		// 			mTrainData.IncUserGestureCount(bundle.basedIndex);
+		// 		}
+		// 		else {
+		// 			if(DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SmartIdentify] no user gesture match!");
+		// 			sInstance.onSmartIdentifyMatch(bundle.id, CommonGesture.None);
+		// 			mTrainData.IncFailedGestureCount(bundle.basedIndex);
+		// 		}
+		// 	}
+		// }
 
 #if UNITY_ANDROID
         // ====================================================================
@@ -1785,6 +1819,7 @@ namespace AirSig {
 
 			void onResult(AndroidJavaObject asGesture, float v, AndroidJavaObject asError) {
 				if(DEBUG_LOG_ENABLED) {
+
 					Debug.Log(
 						string.Format("[AirSigManager][IdentifyCommon] id:{0}, gesture:{1}, score:{2}, error:{3}",
 							mId,
@@ -1853,6 +1888,10 @@ namespace AirSig {
         // ====================================================================
         // Windows implementation
         //
+
+		//BRIAN FOUND THE EDITS FUCK
+		public GameObject gestureManager;
+
         static char[] TAIL_TO_REMOVE = Encoding.ASCII.GetString(new byte[] { (byte)254 }).ToCharArray();
         static char[] NULL_TO_REMOVE = Encoding.ASCII.GetString(new byte[] { (byte)0 }).ToCharArray();
         private void IdentifyPredefined(long id, float[] sensorData, List<string> targetGesture, string classifier, string subClassifier) {
@@ -1891,6 +1930,16 @@ namespace AirSig {
                         .TrimEnd(TAIL_TO_REMOVE)
                         .TrimEnd(NULL_TO_REMOVE);
                     if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][DeveloperDefined] match: " + gesture + ", score: " + score + ", conf: " + conf);
+					if (String.Equals(gesture,"HEART")) {
+						Debug.Log("hearting");
+						isHeart = true;
+					}
+					else if (String.Equals(gesture,"C")) {
+						isC = true;
+					}
+					else if (String.Equals(gesture,"DOWN")) {
+						isDown = true;
+					}
                     if (null != furtherAction && null != bundle) {
                         bundle.matchGesture = gesture;
                         bundle.score = score;
@@ -1911,7 +1960,7 @@ namespace AirSig {
         // ====================================================================
 #endif
 
-#if UNITY_ANDROID 
+#if UNITY_ANDROID
         // ====================================================================
         // Android implementation (via JNI)
         //
@@ -2500,263 +2549,338 @@ namespace AirSig {
         // ====================================================================
 #endif
 
-        void startRightHandCollecting() {
-            if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager] RightHand starts collecting...");
-            mIsCollectingRightControllerData = true;
-            mRightHandPrevTimeElapsed = 0;
-            mRightHandStopWatch.Stop();
-            mRightHandStopWatch.Reset();
-        }
+		void startRightHandCollecting()
+		{
+			if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager] RightHand starts collecting...");
+			mIsCollectingRightControllerData = true;
+			mRightHandPrevTimeElapsed = 0;
+			mRightHandStopWatch.Stop();
+			mRightHandStopWatch.Reset();
+		}
 
-        void startLeftHandCollecting() {
-            if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager] LeftHand starts collecting...");
-            mIsCollectingLeftControllerData = true;
-            mLeftHandPrevTimeElapsed = 0;
-            mLeftHandStopWatch.Stop();
-            mLeftHandStopWatch.Reset();
-        }
+		void startLeftHandCollecting()
+		{
+			if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager] LeftHand starts collecting...");
+			mIsCollectingLeftControllerData = true;
+			mLeftHandPrevTimeElapsed = 0;
+			mLeftHandStopWatch.Stop();
+			mLeftHandStopWatch.Reset();
+		}
 
-        void stopRightHandCollecting() {
-            if (DEBUG_LOG_ENABLED) Debug.Log(string.Format("[AirSigManager] RightHand stopped collecting... {0} samples", mCollectedRightHandSamples.Count));
-            mIsCollectingRightControllerData = false;
+		void stopRightHandCollecting()
+		{
+			if (isHeart == true)
+			{
+				gestureManager.GetComponent<BrianGesture>().Fire();
+				isHeart = false;
+			}
+			else if (isC == true)
+			{
+				isC = false;
+			}
+			else if (isDown == true)
+			{
+				isDown = false;
+			}
 
-            List<Sample> listToSend = new List<Sample>(mCollectedRightHandSamples);
-            Thread t = new Thread(() => processCollectData(listToSend));
-            t.IsBackground = true;
-            t.Start();
+			if (DEBUG_LOG_ENABLED) Debug.Log(string.Format("[AirSigManager] RightHand stopped collecting... {0} samples", mCollectedRightHandSamples.Count));
+			mIsCollectingRightControllerData = false;
 
-            mCollectedRightHandSamples.Clear();
-            mRightHandStopWatch.Stop();
-            mRightHandStopWatch.Reset();
-        }
+			List<Sample> listToSend = new List<Sample>(mCollectedRightHandSamples);
+			Thread t = new Thread(() => processCollectData(listToSend));
+			t.IsBackground = true;
+			t.Start();
 
-        void stopLeftHandCollecting() {
-            if (DEBUG_LOG_ENABLED) Debug.Log(string.Format("[AirSigManager] LeftHand stopped collecting... {0} samples", mCollectedRightHandSamples.Count));
-            mIsCollectingLeftControllerData = false;
+			mCollectedRightHandSamples.Clear();
+			mRightHandStopWatch.Stop();
+			mRightHandStopWatch.Reset();
+		}
 
-            List<Sample> listToSend = new List<Sample>(mCollectedLeftHandSamples);
-            Thread t = new Thread(() => processCollectData(listToSend));
-            t.IsBackground = true;
-            t.Start();
+		void stopLeftHandCollecting()
+		{
+			if (DEBUG_LOG_ENABLED) Debug.Log(string.Format("[AirSigManager] LeftHand stopped collecting... {0} samples", mCollectedRightHandSamples.Count));
+			mIsCollectingLeftControllerData = false;
 
-            mCollectedLeftHandSamples.Clear();
-            mLeftHandStopWatch.Stop();
-            mLeftHandStopWatch.Reset();
-        }
+			List<Sample> listToSend = new List<Sample>(mCollectedLeftHandSamples);
+			Thread t = new Thread(() => processCollectData(listToSend));
+			t.IsBackground = true;
+			t.Start();
 
-        System.Diagnostics.Stopwatch mRightHandStopWatch = new System.Diagnostics.Stopwatch();
-        System.Diagnostics.Stopwatch mLeftHandStopWatch = new System.Diagnostics.Stopwatch();
-        long mRightHandPrevTimeElapsed = 0;
-        long mLeftHandPrevTimeElapsed = 0;
+			mCollectedLeftHandSamples.Clear();
+			mLeftHandStopWatch.Stop();
+			mLeftHandStopWatch.Reset();
+		}
 
-        void Update () {
-            if(mCVRSystem == null) {
-                //Debug.LogWarning("Unable to find the VR system");
-                return;
-            }
-            // Determine right hand status
-            int rightHandIndex = (int)mCVRSystem.GetTrackedDeviceIndexForControllerRole(Valve.VR.ETrackedControllerRole.RightHand);
-            if(rightHandIndex != -1) {
-                var rightHandDevice = SteamVR_Controller.Input(rightHandIndex);
+		System.Diagnostics.Stopwatch mRightHandStopWatch = new System.Diagnostics.Stopwatch();
+		System.Diagnostics.Stopwatch mLeftHandStopWatch = new System.Diagnostics.Stopwatch();
+		long mRightHandPrevTimeElapsed = 0;
+		long mLeftHandPrevTimeElapsed = 0;
 
-                if (mIsCollectingRightControllerData == false) {
-                    // Has not started collecting
-                    if(mRightHandTriggerStartMask != 0) {
-                        if(mRightHandTriggerStartPressOrTouch == PressOrTouch.PRESS) {
-                            // Use press
-                            if (rightHandDevice.GetPressDown(mRightHandTriggerStartMask)) {
-                                startRightHandCollecting();
-                            }
-                        }
-                        else {
-                            // Use touch
-                            if (rightHandDevice.GetTouchDown(mRightHandTriggerStartMask)) {
-                                startRightHandCollecting();
-                            }
-                        }
-                    }
-                }
-                else {
-                    // Already started collecting
-                    if (mRightHandTriggerEndMask != 0) {
-                        if (mRightHandTriggerEndPressOrTouch == PressOrTouch.PRESS) {
-                            // Use press
-                            if (rightHandDevice.GetPressDown(mRightHandTriggerEndMask)) {
-                                stopRightHandCollecting();
-                            }
-                        } else {
-                            // Use touch
-                            if (rightHandDevice.GetTouchDown(mRightHandTriggerEndMask)) {
-                                stopRightHandCollecting();
-                            }
+		void Update()
+		{
+			if (mCVRSystem == null)
+			{
+				Debug.LogWarning("Unable to find the VR system");
+				return;
+			}
+			// Determine right hand status
+			int rightHandIndex = (int)mCVRSystem.GetTrackedDeviceIndexForControllerRole(Valve.VR.ETrackedControllerRole.RightHand);
+			if (rightHandIndex != -1)
+			{
+				var rightHandDevice = SteamVR_Controller.Input(rightHandIndex);
 
-                        }
-                    }
-                    else {
-                        // End key is not defined, use pressUp and touchUp of startMask
-                        if (mRightHandTriggerStartPressOrTouch == PressOrTouch.PRESS) {
-                            // Use press
-                            if (rightHandDevice.GetPressUp(mRightHandTriggerStartMask)) {
-                                stopRightHandCollecting();
-                            }
-                        } else {
-                            // Use touch
-                            if (rightHandDevice.GetTouchUp(mRightHandTriggerStartMask)) {
-                                stopRightHandCollecting();
-                            }
+				if (mIsCollectingRightControllerData == false)
+				{
+					// Has not started collecting
+					if (mRightHandTriggerStartMask != 0)
+					{
+						if (mRightHandTriggerStartPressOrTouch == PressOrTouch.PRESS)
+						{
+							// Use press
+							if (rightHandDevice.GetPressDown(mRightHandTriggerStartMask))
+							{
+								startRightHandCollecting();
+							}
+						}
+						else
+						{
+							// Use touch
+							if (rightHandDevice.GetTouchDown(mRightHandTriggerStartMask))
+							{
+								startRightHandCollecting();
+							}
+						}
+					}
+				}
+				else
+				{
+					// Already started collecting
+					if (mRightHandTriggerEndMask != 0)
+					{
+						if (mRightHandTriggerEndPressOrTouch == PressOrTouch.PRESS)
+						{
+							// Use press
+							if (rightHandDevice.GetPressDown(mRightHandTriggerEndMask))
+							{
+								stopRightHandCollecting();
+							}
+						}
+						else
+						{
+							// Use touch
+							if (rightHandDevice.GetTouchDown(mRightHandTriggerEndMask))
+							{
+								stopRightHandCollecting();
+							}
 
-                        }
-                    }
-                }
-                
-                if (mIsCollectingRightControllerData) {
-                    mRightHandStopWatch.Stop();
-                    long timeElapsedMilliseconds = mRightHandStopWatch.ElapsedMilliseconds;
-                    if (timeElapsedMilliseconds - mRightHandPrevTimeElapsed >= 16) {
-                        Sample sample = new Sample();
-                        sample.time = timeElapsedMilliseconds;
-                        Valve.VR.TrackedDevicePose_t pose = rightHandDevice.GetPose();
-                        SteamVR_Utils.RigidTransform transform = new SteamVR_Utils.RigidTransform(pose.mDeviceToAbsoluteTracking);
-                        transform.Inverse();
-                        Vector3 transformAngularVelocity = transform * new Vector3(-pose.vAngularVelocity.v0, -pose.vAngularVelocity.v1, pose.vAngularVelocity.v2);
+						}
+					}
+					else
+					{
+						// End key is not defined, use pressUp and touchUp of startMask
+						if (mRightHandTriggerStartPressOrTouch == PressOrTouch.PRESS)
+						{
+							// Use press
+							if (rightHandDevice.GetPressUp(mRightHandTriggerStartMask))
+							{
+								stopRightHandCollecting();
+							}
+						}
+						else
+						{
+							// Use touch
+							if (rightHandDevice.GetTouchUp(mRightHandTriggerStartMask))
+							{
+								stopRightHandCollecting();
+							}
 
-                        sample.rotation.x = transformAngularVelocity.x;
-                        sample.rotation.y = transformAngularVelocity.y;
-                        sample.rotation.z = transformAngularVelocity.z;
-                        mCollectedRightHandSamples.Add(sample);
-                        mRightHandPrevTimeElapsed = timeElapsedMilliseconds;
-                    }
-                    mRightHandStopWatch.Start();
-                }
-            }
+						}
+					}
+				}
 
-            int leftHandIndex = (int)mCVRSystem.GetTrackedDeviceIndexForControllerRole(Valve.VR.ETrackedControllerRole.LeftHand);
-            if (leftHandIndex != -1) {
-                var leftHandDevice = SteamVR_Controller.Input(leftHandIndex);
+				if (mIsCollectingRightControllerData)
+				{
+					mRightHandStopWatch.Stop();
+					long timeElapsedMilliseconds = mRightHandStopWatch.ElapsedMilliseconds;
+					if (timeElapsedMilliseconds - mRightHandPrevTimeElapsed >= 16)
+					{
+						Sample sample = new Sample();
+						sample.time = timeElapsedMilliseconds;
+						Valve.VR.TrackedDevicePose_t pose = rightHandDevice.GetPose();
+						SteamVR_Utils.RigidTransform transform = new SteamVR_Utils.RigidTransform(pose.mDeviceToAbsoluteTracking);
+						transform.Inverse();
+						Vector3 transformAngularVelocity = transform * new Vector3(-pose.vAngularVelocity.v0, -pose.vAngularVelocity.v1, pose.vAngularVelocity.v2);
 
-                if (mIsCollectingLeftControllerData == false) {
-                    // Has not started collecting
-                    if (mLeftHandTriggerStartMask != 0) {
-                        if (mLeftHandTriggerStartPressOrTouch == PressOrTouch.PRESS) {
-                            // Use press
-                            if (leftHandDevice.GetPressDown(mLeftHandTriggerStartMask)) {
-                                startLeftHandCollecting();
-                            }
-                        } else {
-                            // Use touch
-                            if (leftHandDevice.GetTouchDown(mLeftHandTriggerStartMask)) {
-                                startLeftHandCollecting();
-                            }
-                        }
-                    }
-                } else {
-                    // Already started collecting
-                    if (mLeftHandTriggerEndMask != 0) {
-                        if (mLeftHandTriggerEndPressOrTouch == PressOrTouch.PRESS) {
-                            // Use press
-                            if (leftHandDevice.GetPressDown(mLeftHandTriggerEndMask)) {
-                                stopLeftHandCollecting();
-                            }
-                        } else {
-                            // Use touch
-                            if (leftHandDevice.GetTouchDown(mLeftHandTriggerEndMask)) {
-                                stopLeftHandCollecting();
-                            }
+						sample.rotation.x = transformAngularVelocity.x;
+						sample.rotation.y = transformAngularVelocity.y;
+						sample.rotation.z = transformAngularVelocity.z;
+						mCollectedRightHandSamples.Add(sample);
+						mRightHandPrevTimeElapsed = timeElapsedMilliseconds;
+					}
+					mRightHandStopWatch.Start();
+				}
+			}
 
-                        }
-                    } else {
-                        // End key is not defined, use pressUp and touchUp of startMask
-                        if (mLeftHandTriggerStartPressOrTouch == PressOrTouch.PRESS) {
-                            // Use press
-                            if (leftHandDevice.GetPressUp(mLeftHandTriggerStartMask)) {
-                                stopLeftHandCollecting();
-                            }
-                        } else {
-                            // Use touch
-                            if (leftHandDevice.GetTouchUp(mLeftHandTriggerStartMask)) {
-                                stopLeftHandCollecting();
-                            }
+			int leftHandIndex = (int)mCVRSystem.GetTrackedDeviceIndexForControllerRole(Valve.VR.ETrackedControllerRole.LeftHand);
+			if (leftHandIndex != -1)
+			{
+				var leftHandDevice = SteamVR_Controller.Input(leftHandIndex);
 
-                        }
-                    }
-                }
+				if (mIsCollectingLeftControllerData == false)
+				{
+					// Has not started collecting
+					if (mLeftHandTriggerStartMask != 0)
+					{
+						if (mLeftHandTriggerStartPressOrTouch == PressOrTouch.PRESS)
+						{
+							// Use press
+							if (leftHandDevice.GetPressDown(mLeftHandTriggerStartMask))
+							{
+								startLeftHandCollecting();
+							}
+						}
+						else
+						{
+							// Use touch
+							if (leftHandDevice.GetTouchDown(mLeftHandTriggerStartMask))
+							{
+								startLeftHandCollecting();
+							}
+						}
+					}
+				}
+				else
+				{
+					// Already started collecting
+					if (mLeftHandTriggerEndMask != 0)
+					{
+						if (mLeftHandTriggerEndPressOrTouch == PressOrTouch.PRESS)
+						{
+							// Use press
+							if (leftHandDevice.GetPressDown(mLeftHandTriggerEndMask))
+							{
+								stopLeftHandCollecting();
+							}
+						}
+						else
+						{
+							// Use touch
+							if (leftHandDevice.GetTouchDown(mLeftHandTriggerEndMask))
+							{
+								stopLeftHandCollecting();
+							}
 
-                if (mIsCollectingLeftControllerData) {
-                    mLeftHandStopWatch.Stop();
-                    long timeElapsedMilliseconds = mLeftHandStopWatch.ElapsedMilliseconds;
-                    if (timeElapsedMilliseconds - mLeftHandPrevTimeElapsed >= 16) {
-                        Sample sample = new Sample();
-                        sample.time = timeElapsedMilliseconds;
-                        Valve.VR.TrackedDevicePose_t pose = leftHandDevice.GetPose();
-                        SteamVR_Utils.RigidTransform transform = new SteamVR_Utils.RigidTransform(pose.mDeviceToAbsoluteTracking);
-                        transform.Inverse();
-                        Vector3 transformAngularVelocity = transform * new Vector3(-pose.vAngularVelocity.v0, -pose.vAngularVelocity.v1, pose.vAngularVelocity.v2);
+						}
+					}
+					else
+					{
+						// End key is not defined, use pressUp and touchUp of startMask
+						if (mLeftHandTriggerStartPressOrTouch == PressOrTouch.PRESS)
+						{
+							// Use press
+							if (leftHandDevice.GetPressUp(mLeftHandTriggerStartMask))
+							{
+								stopLeftHandCollecting();
+							}
+						}
+						else
+						{
+							// Use touch
+							if (leftHandDevice.GetTouchUp(mLeftHandTriggerStartMask))
+							{
+								stopLeftHandCollecting();
+							}
 
-                        sample.rotation.x = transformAngularVelocity.x;
-                        sample.rotation.y = transformAngularVelocity.y;
-                        sample.rotation.z = transformAngularVelocity.z;
-                        mCollectedLeftHandSamples.Add(sample);
-                        mLeftHandPrevTimeElapsed = timeElapsedMilliseconds;
-                    }
-                    mLeftHandStopWatch.Start();
-                }
-            }
-        }
+						}
+					}
+				}
 
-        
-        private Thread thread;
-        private bool mIsCollectingRightControllerData;
-        private bool mIsCollectingLeftControllerData;
-        private struct Sample {
-            public long time;
-            public Vector3 rotation;
-        }
-        private List<Sample> mCollectedRightHandSamples = new List<Sample>();
-        private List<Sample> mCollectedLeftHandSamples = new List<Sample>();
+				if (mIsCollectingLeftControllerData)
+				{
+					mLeftHandStopWatch.Stop();
+					long timeElapsedMilliseconds = mLeftHandStopWatch.ElapsedMilliseconds;
+					if (timeElapsedMilliseconds - mLeftHandPrevTimeElapsed >= 16)
+					{
+						Sample sample = new Sample();
+						sample.time = timeElapsedMilliseconds;
+						Valve.VR.TrackedDevicePose_t pose = leftHandDevice.GetPose();
+						SteamVR_Utils.RigidTransform transform = new SteamVR_Utils.RigidTransform(pose.mDeviceToAbsoluteTracking);
+						transform.Inverse();
+						Vector3 transformAngularVelocity = transform * new Vector3(-pose.vAngularVelocity.v0, -pose.vAngularVelocity.v1, pose.vAngularVelocity.v2);
 
-        private void processCollectData(List<Sample> data) {
-            if (data.Count <= 0) return;
-            float[] transformData = new float[data.Count * 10];
-            for (int i = 0; i < data.Count; i++) {
-                transformData[i * 10] = data[i].time;
-                transformData[i * 10 + 1] = data[i].rotation.x;
-                transformData[i * 10 + 2] = data[i].rotation.y;
-                transformData[i * 10 + 3] = data[i].rotation.z;
-            }
-            int size = Marshal.SizeOf(transformData[0]) * transformData.Length;
-            IntPtr pnt = Marshal.AllocHGlobal(size);
-            try {
-                // Copy the array to unmanaged memory.
-                Marshal.Copy(transformData, 0, pnt, transformData.Length);
-                // Pass to the callback
-                onSensorDataRecorded(pnt, data.Count, 10);
-            } finally {
-                // Free the unmanaged memory.
-                Marshal.FreeHGlobal(pnt);
-            }
-        }
+						sample.rotation.x = transformAngularVelocity.x;
+						sample.rotation.y = transformAngularVelocity.y;
+						sample.rotation.z = transformAngularVelocity.z;
+						mCollectedLeftHandSamples.Add(sample);
+						mLeftHandPrevTimeElapsed = timeElapsedMilliseconds;
+					}
+					mLeftHandStopWatch.Start();
+				}
+			}
+		}
 
-        Valve.VR.CVRSystem mCVRSystem;
 
-        bool mIsInitReady = false;
-        void Awake() {
-            // Application.targetFrameRate = 45;
-            // print("[AirSigManager] after changing framerate target: " + Application.targetFrameRate);
+		private Thread thread;
+		private bool mIsCollectingRightControllerData;
+		private bool mIsCollectingLeftControllerData;
+		private struct Sample
+		{
+			public long time;
+			public Vector3 rotation;
+		}
+		private List<Sample> mCollectedRightHandSamples = new List<Sample>();
+		private List<Sample> mCollectedLeftHandSamples = new List<Sample>();
 
-            if (sInstance != null) {
-                Debug.LogError("More than one AirSigManager instance was found in your scene. " +
-                    "Ensure that there is only one AirSigManager GameObject.");
-                this.enabled = false;
-                return;
-            }
-            sInstance = this;
+		private void processCollectData(List<Sample> data)
+		{
+			if (data.Count <= 0) return;
+			float[] transformData = new float[data.Count * 10];
+			for (int i = 0; i < data.Count; i++)
+			{
+				transformData[i * 10] = data[i].time;
+				transformData[i * 10 + 1] = data[i].rotation.x;
+				transformData[i * 10 + 2] = data[i].rotation.y;
+				transformData[i * 10 + 3] = data[i].rotation.z;
+			}
+			int size = Marshal.SizeOf(transformData[0]) * transformData.Length;
+			IntPtr pnt = Marshal.AllocHGlobal(size);
+			try
+			{
+				// Copy the array to unmanaged memory.
+				Marshal.Copy(transformData, 0, pnt, transformData.Length);
+				// Pass to the callback
+				onSensorDataRecorded(pnt, data.Count, 10);
+			}
+			finally
+			{
+				// Free the unmanaged memory.
+				Marshal.FreeHGlobal(pnt);
+			}
+		}
 
-            mCVRSystem = Valve.VR.OpenVR.System;
+		Valve.VR.CVRSystem mCVRSystem;
 
-            // Shorten the debug message
-            //Application.SetStackTraceLogType(LogType.Log, StackTraceLogType.None);
+		bool mIsInitReady = false;
+		void Awake()
+		{
+			// Application.targetFrameRate = 45;
+			// print("[AirSigManager] after changing framerate target: " + Application.targetFrameRate);
 
-            // Init AirSig engine
+			if (sInstance != null)
+			{
+				Debug.LogError("More than one AirSigManager instance was found in your scene. " +
+					"Ensure that there is only one AirSigManager GameObject.");
+				this.enabled = false;
+				return;
+			}
+			sInstance = this;
+
+			mCVRSystem = Valve.VR.OpenVR.System;
+
+			// Shorten the debug message
+			//Application.SetStackTraceLogType(LogType.Log, StackTraceLogType.None);
+
+			// Init AirSig engine
 #if UNITY_ANDROID
             // ====================================================================
             // Android implementation
@@ -2809,24 +2933,25 @@ namespace AirSig {
             // ====================================================================
 #endif
 
-            mCache.Clear ();
+			mCache.Clear();
 
-            // if(File.Exists(Application.persistentDataPath + "/trainData.dat")) {
-            // 	BinaryFormatter bf = new BinaryFormatter();
-            // 	FileStream file = File.Open(Application.persistentDataPath + "/trainData.dat", FileMode.Open);
-            // 	mTrainData = (TrainData)bf.Deserialize(file);
-            // 	file.Close();
-            // }
+			// if(File.Exists(Application.persistentDataPath + "/trainData.dat")) {
+			// 	BinaryFormatter bf = new BinaryFormatter();
+			// 	FileStream file = File.Open(Application.persistentDataPath + "/trainData.dat", FileMode.Open);
+			// 	mTrainData = (TrainData)bf.Deserialize(file);
+			// 	file.Close();
+			// }
 			Load();
 
-            mIsInitReady = true;
-        }
+			mIsInitReady = true;
+		}
 
-        void OnDestroy () {
-            sInstance = null;
+		void OnDestroy()
+		{
+			sInstance = null;
 
-            if (!mIsInitReady)
-                return;
+			if (!mIsInitReady)
+				return;
 
 #if UNITY_ANDROID
             // ====================================================================
@@ -2845,51 +2970,59 @@ namespace AirSig {
             viveControllerHelper = IntPtr.Zero;
             // ====================================================================
 #endif
-        }
+		}
 
-        void Load () {
-            if (File.Exists (Application.persistentDataPath + "/trainData.dat")) {
-                BinaryFormatter bf = new BinaryFormatter ();
-                FileStream file = File.Open (Application.persistentDataPath + "/trainData.dat", FileMode.Open);
-                mTrainData = (TrainData) bf.Deserialize (file);
-                file.Close ();
+		void Load()
+		{
+			if (File.Exists(Application.persistentDataPath + "/trainData.dat"))
+			{
+				BinaryFormatter bf = new BinaryFormatter();
+				FileStream file = File.Open(Application.persistentDataPath + "/trainData.dat", FileMode.Open);
+				mTrainData = (TrainData)bf.Deserialize(file);
+				file.Close();
 
-                Dictionary<int, bool>.KeyCollection keyColl = mTrainData.useUserGesture.Keys;
-                if (DEBUG_LOG_ENABLED) Debug.Log ("[AirSigManager] Trained Data Loaded - " + string.Join (",", keyColl.Select (x => x.ToString ()).ToArray ()));
+				Dictionary<int, bool>.KeyCollection keyColl = mTrainData.useUserGesture.Keys;
+				if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager] Trained Data Loaded - " + string.Join(",", keyColl.Select(x => x.ToString()).ToArray()));
 
-                long user = mTrainData.userGestureCount.Sum (x => x.Value);
-                long common = mTrainData.commonGestureCount.Sum (x => x.Value);
-                long fail = mTrainData.failedGestureCount.Sum (x => x.Value);
-                long total = mTrainData.Total ();
-                if (DEBUG_LOG_ENABLED) Debug.Log (string.Format ("[AirSigManager] History stats:\n === User:{0}/{1}\n === Common:{2}/{3}\n === Fail:{4}/{5}",
-                    user, total,
-                    common, total,
-                    fail, total));
+				long user = mTrainData.userGestureCount.Sum(x => x.Value);
+				long common = mTrainData.commonGestureCount.Sum(x => x.Value);
+				long fail = mTrainData.failedGestureCount.Sum(x => x.Value);
+				long total = mTrainData.Total();
+				if (DEBUG_LOG_ENABLED) Debug.Log(string.Format("[AirSigManager] History stats:\n === User:{0}/{1}\n === Common:{2}/{3}\n === Fail:{4}/{5}",
+					user, total,
+					common, total,
+					fail, total));
 
-            }
-        }
-        
-        void Save () {
-            BinaryFormatter bf = new BinaryFormatter ();
-            FileStream file;
-            if (File.Exists (Application.persistentDataPath + "/trainData.dat")) {
-                file = File.Open (Application.persistentDataPath + "/trainData.dat", FileMode.Open);
-            } else {
-                file = File.Create (Application.persistentDataPath + "/trainData.dat");
-            }
+			}
+		}
 
-            bf.Serialize (file, mTrainData);
-            file.Close ();
-        }
+		void Save()
+		{
+			BinaryFormatter bf = new BinaryFormatter();
+			FileStream file;
+			if (File.Exists(Application.persistentDataPath + "/trainData.dat"))
+			{
+				file = File.Open(Application.persistentDataPath + "/trainData.dat", FileMode.Open);
+			}
+			else
+			{
+				file = File.Create(Application.persistentDataPath + "/trainData.dat");
+			}
 
-        private void printGestureStat() {
-            foreach(KeyValuePair<int, ErrorCount> item in mCommonGestureStat.gestureStat) {
-	            if(DEBUG_LOG_ENABLED) Debug.Log("----------------------------");
-	            if(DEBUG_LOG_ENABLED) Debug.Log(String.Format("key:{0}  userErr:{1}  commErr:{2}", item.Key, item.Value.userErrCount, item.Value.commonErrCount));
-            }
-        }
+			bf.Serialize(file, mTrainData);
+			file.Close();
+		}
 
-        /// Ask to calculate a new set of error count stat for collected gesture
+		private void printGestureStat()
+		{
+			foreach (KeyValuePair<int, ErrorCount> item in mCommonGestureStat.gestureStat)
+			{
+				if (DEBUG_LOG_ENABLED) Debug.Log("----------------------------");
+				if (DEBUG_LOG_ENABLED) Debug.Log(String.Format("key:{0}  userErr:{1}  commErr:{2}", item.Key, item.Value.userErrCount, item.Value.commonErrCount));
+			}
+		}
+
+		/// Ask to calculate a new set of error count stat for collected gesture
 #if UNITY_ANDROID
 		// ======================
 		// Android
@@ -3038,21 +3171,24 @@ namespace AirSig {
         // ======================
 #endif
 
-        
 
-        /// Set the identification mode for the next incoming gesture
-        public void SetMode(Mode mode) {
-            if (mCurrentMode == mode) {
-                if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SetMode] New mode (" + mode + ") equals to the existing mode so nothing will change...");
-                return;
-            }
-            if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SetMode] New mode (" + mode + ")");
-            if ((mCurrentMode & Mode.SmartTrainDeveloperDefined) > 0 && (mode & Mode.SmartTrainDeveloperDefined) == 0 && mCurrentPredefined.Count > 0) {
-                // current mode contain smart train predefined and the new mode doesn't, trigger the smart train process
-                if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SetMode] Changing mode and trigger SmartTrainDeveloperDefined process ...");
-                SmartTrainPredefinedGesture(mCurrentPredefined.First());
-            }
-            mCurrentMode = mode;
+
+		/// Set the identification mode for the next incoming gesture
+		public void SetMode(Mode mode)
+		{
+			if (mCurrentMode == mode)
+			{
+				if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SetMode] New mode (" + mode + ") equals to the existing mode so nothing will change...");
+				return;
+			}
+			if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SetMode] New mode (" + mode + ")");
+			if ((mCurrentMode & Mode.SmartTrainDeveloperDefined) > 0 && (mode & Mode.SmartTrainDeveloperDefined) == 0 && mCurrentPredefined.Count > 0)
+			{
+				// current mode contain smart train predefined and the new mode doesn't, trigger the smart train process
+				if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SetMode] Changing mode and trigger SmartTrainDeveloperDefined process ...");
+				SmartTrainPredefinedGesture(mCurrentPredefined.First());
+			}
+			mCurrentMode = mode;
 
 #if UNITY_ANDROID
 			// ==================
@@ -3072,59 +3208,67 @@ namespace AirSig {
 			// ==================
 #endif
 
-            mTrainFailCount = 0;
+			mTrainFailCount = 0;
 
-           // clear all training
-            mTrainingProgressGestures.Clear();
-        }
+			// clear all training
+			mTrainingProgressGestures.Clear();
+		}
 
-        /// Set the identification target for the next incoming gesture
-        public void SetTarget(List<int> target) {
-            if (mCurrentTarget.SequenceEqual(target)) {
-                if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SetTarget] New targets equal to the existing targets so nothing will change...");
-                return;
-            }
-            
-            mCurrentTarget = target;
+		/// Set the identification target for the next incoming gesture
+		public void SetTarget(List<int> target)
+		{
+			if (mCurrentTarget.SequenceEqual(target))
+			{
+				if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SetTarget] New targets equal to the existing targets so nothing will change...");
+				return;
+			}
 
-            if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SetTarget] Targets: " + string.Join(",", mCurrentTarget.Select(x => x.ToString()).ToArray()));
+			mCurrentTarget = target;
 
-            mTrainFailCount = 0;
+			if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SetTarget] Targets: " + string.Join(",", mCurrentTarget.Select(x => x.ToString()).ToArray()));
 
-            // clear all incomplete training
-            mTrainingProgressGestures.Clear();
-        }
+			mTrainFailCount = 0;
 
-        public void SetDeveloperDefinedTarget(List<string> target) {
-            string gesture = null;
-            if (mCurrentPredefined.Count > 0) {
-                gesture = mCurrentPredefined.First(); // This gesture is recorded as before changed (for smart train to exec)
-            }
-            mCurrentPredefined = target==null?new List<string>():target;
-            if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SetDeveloperDefinedTarget] Targets: " + string.Join(",", mCurrentPredefined.Select(x => x.ToString()).ToArray()));
+			// clear all incomplete training
+			mTrainingProgressGestures.Clear();
+		}
 
-            if ((mCurrentMode & Mode.SmartTrainDeveloperDefined) > 0 && null != gesture) {
-                // current mode contain smart train predefined and the new mode doesn't, trigger the smart train process
-                SmartTrainPredefinedGesture(gesture);
-            }
-        }
+		public void SetDeveloperDefinedTarget(List<string> target)
+		{
+			string gesture = null;
+			if (mCurrentPredefined.Count > 0)
+			{
+				gesture = mCurrentPredefined.First(); // This gesture is recorded as before changed (for smart train to exec)
+			}
+			mCurrentPredefined = target == null ? new List<string>() : target;
+			if (DEBUG_LOG_ENABLED) Debug.Log("[AirSigManager][SetDeveloperDefinedTarget] Targets: " + string.Join(",", mCurrentPredefined.Select(x => x.ToString()).ToArray()));
 
-        public void SetClassifier(string classifier, string subClassifier) {
-            mClassifier = classifier;
-            mSubClassifier = subClassifier;
-        }
+			if ((mCurrentMode & Mode.SmartTrainDeveloperDefined) > 0 && null != gesture)
+			{
+				// current mode contain smart train predefined and the new mode doesn't, trigger the smart train process
+				SmartTrainPredefinedGesture(gesture);
+			}
+		}
 
-        /// Reset smart training data
-        public void ResetSmartTrain() {
-            mTrainData.useUserGesture.Clear();
-            mTrainData.usePredefinedUserGesture.Clear();
-        }
+		public void SetClassifier(string classifier, string subClassifier)
+		{
+			mClassifier = classifier;
+			mSubClassifier = subClassifier;
+		}
 
-        public void GetCustomGestureCache() {
+		/// Reset smart training data
+		public void ResetSmartTrain()
+		{
+			mTrainData.useUserGesture.Clear();
+			mTrainData.usePredefinedUserGesture.Clear();
+		}
 
-        }
+		public void GetCustomGestureCache()
+		{
 
-        /// Set custom gesture to engine
+		}
+
+		/// Set custom gesture to engine
 #if UNITY_ANDROID
 		// =========================
 		// Window
@@ -3208,56 +3352,70 @@ namespace AirSig {
         }
         // ========================
 #endif
-    }
+	}
 
-    [Serializable]
-    class TrainData {
-        public Dictionary<int, float> trainProgress = new Dictionary<int, float> ();
-        public Dictionary<int, bool> useUserGesture = new Dictionary<int, bool> (); // builtin common gesture settings for predefined gesture
-        public Dictionary<string, bool> usePredefinedUserGesture = new Dictionary<string, bool>(); // smart gesture settings for predefined gesture
-        // common gesture and user gesture statistic
-        public Dictionary<int, long> userGestureCount = new Dictionary<int, long> ();
-        public Dictionary<int, long> commonGestureCount = new Dictionary<int, long> ();
-        public Dictionary<int, long> failedGestureCount = new Dictionary<int, long> ();
+	[Serializable]
+	class TrainData
+	{
+		public Dictionary<int, float> trainProgress = new Dictionary<int, float>();
+		public Dictionary<int, bool> useUserGesture = new Dictionary<int, bool>(); // builtin common gesture settings for predefined gesture
+		public Dictionary<string, bool> usePredefinedUserGesture = new Dictionary<string, bool>(); // smart gesture settings for predefined gesture
+																								   // common gesture and user gesture statistic
+		public Dictionary<int, long> userGestureCount = new Dictionary<int, long>();
+		public Dictionary<int, long> commonGestureCount = new Dictionary<int, long>();
+		public Dictionary<int, long> failedGestureCount = new Dictionary<int, long>();
 
-        public long IncUserGestureCount (int target) {
-            long newValue;
-            if (userGestureCount.ContainsKey (target)) {
-                newValue = userGestureCount[target] + 1;
-                userGestureCount[target] = newValue;
-            } else {
-                newValue = userGestureCount[target] = 1;
-            }
-            return newValue;
-        }
+		public long IncUserGestureCount(int target)
+		{
+			long newValue;
+			if (userGestureCount.ContainsKey(target))
+			{
+				newValue = userGestureCount[target] + 1;
+				userGestureCount[target] = newValue;
+			}
+			else
+			{
+				newValue = userGestureCount[target] = 1;
+			}
+			return newValue;
+		}
 
-        public long IncCommonGestureCount (int target) {
-            long newValue;
-            if (commonGestureCount.ContainsKey (target)) {
-                newValue = commonGestureCount[target] + 1;
-                commonGestureCount[target] = newValue;
-            } else {
-                newValue = commonGestureCount[target] = 1;
-            }
-            return newValue;
-        }
+		public long IncCommonGestureCount(int target)
+		{
+			long newValue;
+			if (commonGestureCount.ContainsKey(target))
+			{
+				newValue = commonGestureCount[target] + 1;
+				commonGestureCount[target] = newValue;
+			}
+			else
+			{
+				newValue = commonGestureCount[target] = 1;
+			}
+			return newValue;
+		}
 
-        public long IncFailedGestureCount (int target) {
-            long newValue;
-            if (failedGestureCount.ContainsKey (target)) {
-                newValue = failedGestureCount[target] + 1;
-                failedGestureCount[target] = newValue;
-            } else {
-                newValue = failedGestureCount[target] = 1;
-            }
-            return newValue;
-        }
+		public long IncFailedGestureCount(int target)
+		{
+			long newValue;
+			if (failedGestureCount.ContainsKey(target))
+			{
+				newValue = failedGestureCount[target] + 1;
+				failedGestureCount[target] = newValue;
+			}
+			else
+			{
+				newValue = failedGestureCount[target] = 1;
+			}
+			return newValue;
+		}
 
-        public long Total () {
-            long userGestureTotal = userGestureCount.Sum (x => x.Value);
-            long commonGestureTotal = commonGestureCount.Sum (x => x.Value);
-            long failedGestureTotal = failedGestureCount.Sum (x => x.Value);
-            return userGestureTotal + commonGestureTotal + failedGestureTotal;
-        }
-    }
+		public long Total()
+		{
+			long userGestureTotal = userGestureCount.Sum(x => x.Value);
+			long commonGestureTotal = commonGestureCount.Sum(x => x.Value);
+			long failedGestureTotal = failedGestureCount.Sum(x => x.Value);
+			return userGestureTotal + commonGestureTotal + failedGestureTotal;
+		}
+	}
 }

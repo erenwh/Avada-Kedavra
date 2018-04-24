@@ -9,6 +9,7 @@ public class PadConfig : MonoBehaviour {
 	SteamVR_TrackedObject trackedObj;
 	SteamVR_Controller.Device device;
 	public GameObject wand;
+	public GameObject scoreManager;
 	public bool isLeft;
 
 	void Awake() {
@@ -24,6 +25,18 @@ public class PadConfig : MonoBehaviour {
 		device = SteamVR_Controller.Input((int)trackedObj.index);
 	}
 	
+	IEnumerator DamageCoroutine() {
+		//yield return new WaitForSeconds(.5f);
+		if (isLeft == false) {
+			while (scoreManager.GetComponent<Score>().score > 0) {
+				scoreManager.GetComponent<Score>().score -= 1;
+				wand.GetComponent<GunController>().damage += 1;
+				break;
+			}
+		}
+		yield return new WaitForSeconds(.5f);
+	}
+
 	// Update is called once per frame
 	void Update () {
 		if (device.GetPress(SteamVR_Controller.ButtonMask.Touchpad))
@@ -32,10 +45,7 @@ public class PadConfig : MonoBehaviour {
 
 			if (touchpad.y > 0.7f)
 			{
-				// pressing up
-				if (isLeft == false) {
-					wand.GetComponent<GunController>().damage += 10;
-				}
+				StartCoroutine(DamageCoroutine());
 				
 			}
 
