@@ -2576,11 +2576,13 @@ namespace AirSig
 			}
 			else if (isC == true)
 			{
-				isC = false;
+                gestureManager.GetComponent<BrianGesture>().Fire();
+                isC = false;
 			}
 			else if (isDown == true)
 			{
-				isDown = false;
+                gestureManager.GetComponent<BrianGesture>().Fire();
+                isDown = false;
 			}
 
 			if (DEBUG_LOG_ENABLED) Debug.Log(string.Format("[AirSigManager] RightHand stopped collecting... {0} samples", mCollectedRightHandSamples.Count));
