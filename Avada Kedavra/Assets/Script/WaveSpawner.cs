@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class WaveSpawner : MonoBehaviour {
 
+    public GameObject bitch;
+
     public enum SpawnState { SPAWNING, WAITING, COUNTING };
 
     [System.Serializable]
@@ -121,8 +123,17 @@ public class WaveSpawner : MonoBehaviour {
 
         if (nextWave + 1 > waves.Length - 1)
         {
-            nextWave = 0;
-            Debug.Log("All waves Complete! looping");
+            // wave done
+            if (bitch.GetComponent<Target>().canTP == true)
+            {
+                Debug.Log("tping");
+                Debug.Log("Failed");
+                bitch.transform.position = new Vector3(0f, 0f, 309f);
+                bitch.GetComponent<Target>().canTP = false;
+            }
+
+            /*nextWave = 0;
+            Debug.Log("All waves Complete! looping");*/
         }
         else
         {

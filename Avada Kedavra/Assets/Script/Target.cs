@@ -4,11 +4,14 @@ using UnityEngine;
 
 public class Target : MonoBehaviour {
 
+    public bool canTP = true;
+
     public float health = 100;
     public bool dead = false;
 	public bool isPlayer = false;
     public GameObject scoreManager;
     public bool isGoal = false;
+    public GameObject bitch;
     public bool isEnemy = false;
 
     void Start()
@@ -21,22 +24,31 @@ public class Target : MonoBehaviour {
         health -= damage;
     }
 
-    void OnCollisionEnter(Collision coll)
+    private void OnCollisionEnter(Collision c)
     {
-        if (coll.gameObject.name == "Bullet" && isEnemy == true)
+        if (c.gameObject.CompareTag("Bullet") == true && isEnemy == true)
         {
-            Debug.Log("hit");
-            Destroy(coll.gameObject);
+            Debug.Log("collision entered");
             TakeDamage(GameObject.FindGameObjectWithTag("Wizard").GetComponent<GunController>().damage);
+
+            Destroy(c.gameObject);
         }
     }
 
     private void OnTriggerEnter(Collider c)
     {
-        if (isGoal == true)
+        if (c.gameObject.CompareTag("Bullet") == true && isEnemy == true)
         {
-            Debug.Log("slashed");
-            TakeDamage(5);
+            Debug.Log("FUCKING HIT");
+            TakeDamage(30);
+
+            Destroy(c.gameObject);
+        }
+        else if (isGoal == true)
+        {
+            //Debug.Log("slashed");
+            TakeDamage(1);
+            Destroy(c.gameObject);
         }
     }
 
@@ -52,7 +64,6 @@ public class Target : MonoBehaviour {
             else if (isGoal == true)
             {
                 scoreManager.GetComponent<Score>().subScore(50);
-                Destroy(gameObject);
             }
         }
 	}

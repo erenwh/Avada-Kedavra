@@ -190,6 +190,7 @@ GameObject:
   - component: {fileID: 114510400167323216}
   - component: {fileID: 54275596854935902}
   - component: {fileID: 114655549737667958}
+  - component: {fileID: 65230997731549036}
   m_Layer: 0
   m_Name: skeleton3 Fixed
   m_TagString: Enemy
@@ -712,7 +713,7 @@ Transform:
   m_PrefabInternal: {fileID: 100100000}
   m_GameObject: {fileID: 1326045801865724}
   m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
-  m_LocalPosition: {x: 0.5448866, y: 0.03, z: -19.75}
+  m_LocalPosition: {x: -28.967194, y: 0, z: -18.474228}
   m_LocalScale: {x: 10, y: 10, z: 10}
   m_Children:
   - {fileID: 4669940833259728}
@@ -1240,6 +1241,18 @@ BoxCollider:
   serializedVersion: 2
   m_Size: {x: 0.0134108, y: 0.113529876, z: 0.028402882}
   m_Center: {x: -0.00000006603295, y: -0.038812816, z: 0.0025102347}
+--- !u!65 &65230997731549036
+BoxCollider:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1326045801865724}
+  m_Material: {fileID: 0}
+  m_IsTrigger: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Size: {x: 0.15, y: 0.35, z: 0.15}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!95 &95260846826144842
 Animator:
   serializedVersion: 3
@@ -1438,7 +1451,7 @@ NavMeshAgent:
   m_Acceleration: 8
   avoidancePriority: 50
   m_AngularSpeed: 120
-  m_StoppingDistance: 3
+  m_StoppingDistance: 2
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1

@@ -1890,7 +1890,7 @@ namespace AirSig
         //
 
 		//BRIAN FOUND THE EDITS FUCK
-		public GameObject gestureManager;
+		public GameObject guncontroller;
 
         static char[] TAIL_TO_REMOVE = Encoding.ASCII.GetString(new byte[] { (byte)254 }).ToCharArray();
         static char[] NULL_TO_REMOVE = Encoding.ASCII.GetString(new byte[] { (byte)0 }).ToCharArray();
@@ -2571,17 +2571,19 @@ namespace AirSig
 		{
 			if (isHeart == true)
 			{
-				gestureManager.GetComponent<BrianGesture>().Fire();
-				isHeart = false;
+				//gestureManager.GetComponent<BrianGesture>().Fire();
+                StartCoroutine(guncontroller.GetComponent<GunController>().notime(10));
+                isHeart = false;
 			}
 			else if (isC == true)
 			{
-                gestureManager.GetComponent<BrianGesture>().Fire();
+                //gestureManager.GetComponent<BrianGesture>().Fire();
+                StartCoroutine(guncontroller.GetComponent<GunController>().notime(2));
                 isC = false;
 			}
 			else if (isDown == true)
 			{
-                gestureManager.GetComponent<BrianGesture>().Fire();
+                //gestureManager.GetComponent<BrianGesture>().Fire();
                 isDown = false;
 			}
 

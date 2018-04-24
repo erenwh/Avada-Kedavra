@@ -50,7 +50,7 @@ public class NPCMove2 : MonoBehaviour {
 
     private void SetDestination()
     {
-        _destination = GameObject.FindGameObjectWithTag("Target2").transform;
+        _destination = GameObject.FindWithTag("Target2").transform;
 
 
         if (_destination != null)

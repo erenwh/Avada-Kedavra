@@ -55,6 +55,7 @@ public class PadConfig : MonoBehaviour {
 		//yield return new WaitForSeconds(.5f);
 		if (isLeft == false) {
 			while (scoreManager.GetComponent<Score>().score > 0) {
+                if (scoreManager.GetComponent<Score>().scoreLock == false) break;
 				scoreManager.GetComponent<Score>().score -= 1;
 				wand.GetComponent<GunController>().damage += 1;
 				break;
@@ -70,6 +71,7 @@ public class PadConfig : MonoBehaviour {
         {
             while (scoreManager.GetComponent<Score>().score > 0)
             {
+                if (scoreManager.GetComponent<Score>().scoreLock == false) break;
                 scoreManager.GetComponent<Score>().score -= 1;
                 PlayerHealth.GetComponent<Target>().health += 1;
                 break;

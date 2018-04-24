@@ -12,18 +12,29 @@ public class BrianGesture : MonoBehaviour {
 		
 	}
 
-	public void Fire() {
+    /*public IEnumerator notime(int num)
+    {
+        int x = 0;
+        while (x < num)
+        {
+            Fire();
+            yield return new WaitForSeconds(.1f);
+            x++;
+        }
+    }*/
+
+    /*public void Fire() {
 			var bullet = (GameObject)Instantiate (
 				bulletPrefab,
 				bulletSpawn.position,
 				bulletSpawn.rotation);
 
 		// Add velocity to the bullet
-		bullet.GetComponent<Rigidbody>().velocity = bullet.transform.forward * 15;
+		bullet.GetComponent<Rigidbody>().velocity = bullet.transform.forward * 30;
 
-		// Destroy the bullet after 2 seconds
-		Destroy(bullet, 2.0f);
-	}
+        // Destroy the bullet after 2 seconds
+        Destroy(bullet, 2.0f);
+	}*/
 	
 	// Update is called once per frame
 	void Update () {
