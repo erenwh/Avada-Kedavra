@@ -8,6 +8,8 @@ public class Target : MonoBehaviour {
     public bool dead = false;
 	public bool isPlayer = false;
     public GameObject scoreManager;
+    public bool isGoal = false;
+    public bool isEnemy = false;
 
     void Start()
     {
@@ -21,22 +23,37 @@ public class Target : MonoBehaviour {
 
     void OnCollisionEnter(Collision coll)
     {
-        if (coll.gameObject.name == "Bullet")
+        if (coll.gameObject.name == "Bullet" && isEnemy == true)
         {
             Debug.Log("hit");
             Destroy(coll.gameObject);
             TakeDamage(GameObject.FindGameObjectWithTag("Wizard").GetComponent<GunController>().damage);
         }
     }
-	
-	// Update is called once per frame
-	void Update () {
-		if (dead == true)
+
+    private void OnTriggerEnter(Collider c)
+    {
+        if (isGoal == true)
         {
-			if (isPlayer == false) {
-				scoreManager.GetComponent<Score>().addScore(3);
+            Debug.Log("slashed");
+            TakeDamage(5);
+        }
+    }
+
+    // Update is called once per frame
+    void Update () {
+        if (health <= 0) dead = true;
+        if (dead == true)
+        {
+			if (isEnemy == true) {
+				scoreManager.GetComponent<Score>().addScore(10);
 				Destroy(gameObject);
 			}
+            else if (isGoal == true)
+            {
+                scoreManager.GetComponent<Score>().subScore(50);
+                Destroy(gameObject);
+            }
         }
 	}
 }

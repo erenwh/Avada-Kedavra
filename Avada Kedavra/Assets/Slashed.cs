@@ -5,8 +5,8 @@ using UnityEngine;
 public class Slashed : MonoBehaviour {
 
 
-    private void OnTriggerEnter(Collider c)
+    /*private void OnTriggerEnter(Collider c)
     {
         Debug.Log("FUCKYOU");
-    }
+    }*/
 }
