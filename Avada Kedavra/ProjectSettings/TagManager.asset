@@ -11,6 +11,10 @@ TagManager:
   - Target2
   - Target3
   - Target1
+  - ScoreManager
+  - Wizard
+  - Bullet
+  - MenuText
   layers:
   - Default
   - TransparentFX
