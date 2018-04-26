@@ -116,6 +116,12 @@
      <Compile Include="Assets\PostProcessing\Runtime\Utils\MaterialFactory.cs" />
      <Compile Include="Assets\PostProcessing\Runtime\Utils\RenderTextureFactory.cs" />
      <Compile Include="Assets\PostProcessing\Utilities\CustomMotionTexture\ExampleWheelController.cs" />
+     <Compile Include="Assets\PowerUp\Scripts\CustomizablePowerUp.cs" />
+     <Compile Include="Assets\PowerUp\Scripts\PowerUpManager.cs" />
+     <Compile Include="Assets\PowerUp\Scripts\PowerUpRotation.cs" />
+     <Compile Include="Assets\PowerUp\Scripts\ScaleParticles.cs" />
+     <Compile Include="Assets\PowerUp\Scripts\TakeablePowerUp.cs" />
+     <Compile Include="Assets\PowerUp\Scripts\Utility\Singleton.cs" />
      <Compile Include="Assets\Script\BrianGesture.cs" />
      <Compile Include="Assets\Script\Chase.cs" />
      <Compile Include="Assets\Script\ConnectedWaypoint.cs" />

@@ -5,6 +5,7 @@ using UnityEngine;
 public class WaveSpawner : MonoBehaviour {
 
     public GameObject bitch;
+	public GameObject manager;
 
     public enum SpawnState { SPAWNING, WAITING, COUNTING };
 
@@ -112,6 +113,7 @@ public class WaveSpawner : MonoBehaviour {
         
         Transform _sp = spawnPoints[Random.Range(0, spawnPoints.Length)];
         Instantiate(_enemy, _sp.position, _sp.rotation);
+		manager.GetComponent<MenuManager>().enemyNum++;
        
     }
 

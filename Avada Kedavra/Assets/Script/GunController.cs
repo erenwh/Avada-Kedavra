@@ -15,8 +15,11 @@ public class GunController : MonoBehaviour {
 	public bool menuShown;
     public Camera cam;
 
-    public GameObject bulletPrefab;
+    public GameObject heartPrefab;
     public Transform bulletSpawn;
+
+	public GameObject cPrefab;
+	public GameObject downPrefab;
 
     // Use this for initialization
     void Start () {
@@ -39,20 +42,32 @@ public class GunController : MonoBehaviour {
 		menuShown = true;
 	}
 
-    public void Fire()
+    public void Fire(int num)
     {
-        var bullet = (GameObject)Instantiate(
-            bulletPrefab,
-            bulletSpawn.position,
-            bulletSpawn.rotation);
-
-        // Add velocity to the bullet
-        bullet.GetComponent<Rigidbody>().velocity = bullet.transform.forward * 30;
-
-        
-
-        // Destroy the bullet after 2 seconds
-        Destroy(bullet, 2.0f);
+		if (num == 1) {
+	        var bullet = (GameObject)Instantiate(
+		        downPrefab,
+			    bulletSpawn.position,
+				bulletSpawn.rotation);
+			bullet.GetComponent<Rigidbody>().velocity = bullet.transform.forward * 30;
+			Destroy(bullet, 2.0f);
+		}
+		else if (num == 2) {
+	        var bullet = (GameObject)Instantiate(
+		        cPrefab,
+			    bulletSpawn.position,
+				bulletSpawn.rotation);
+			bullet.GetComponent<Rigidbody>().velocity = bullet.transform.forward * 30;
+			Destroy(bullet, 2.0f);
+		}
+		else if (num == 10) {
+	        var bullet = (GameObject)Instantiate(
+				heartPrefab,
+			    bulletSpawn.position,
+				bulletSpawn.rotation);
+			bullet.GetComponent<Rigidbody>().velocity = bullet.transform.forward * 30;
+			Destroy(bullet, 2.0f);
+		}
     }
 
     public IEnumerator notime(int num)
@@ -61,7 +76,7 @@ public class GunController : MonoBehaviour {
         int x = 0;
         while (x < num)
         {
-            Fire();
+            Fire(num);
             yield return new WaitForSeconds(.1f);
             x++;
         }
@@ -69,7 +84,6 @@ public class GunController : MonoBehaviour {
 
     private void fireNow()
     {
-        RaycastHit hit;
 
         //Ray ray = new Ray(muzzleTransform.position, muzzleTransform.forward);
         device = SteamVR_Controller.Input((int)trackObj.index);

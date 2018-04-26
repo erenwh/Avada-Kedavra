@@ -6,6 +6,7 @@ using Valve.VR;
 [RequireComponent(typeof(SteamVR_TrackedObject))]
 public class PadConfig : MonoBehaviour {
     public GameObject Menu;
+	public GameObject RMenu;
     private SteamVR_TrackedController controller;
     public GameObject ControllerLeft;
     SteamVR_TrackedObject trackedObj;
@@ -15,6 +16,7 @@ public class PadConfig : MonoBehaviour {
     public GameObject PlayerHealth;
     public bool isLeft;
     private bool menuTrack;
+	private bool rmenuTrack;
 
 	void Awake() {
 		trackedObj = GetComponent<SteamVR_TrackedObject>();
@@ -23,7 +25,9 @@ public class PadConfig : MonoBehaviour {
 	// Use this for initialization
 	void Start () {
         menuTrack = false;
+		rmenuTrack = false;
         Menu.SetActive(false);
+		RMenu.SetActive(false);
         controller = ControllerLeft.GetComponent<SteamVR_TrackedController>();
         controller.MenuButtonClicked += MBC;
     }
@@ -39,16 +43,30 @@ public class PadConfig : MonoBehaviour {
 
     private void MenuUp()
     {
-        if (menuTrack == false)
-        {
-            Menu.SetActive(true);
-            menuTrack = true;
-        }
-        else if (menuTrack == true)
-        {
-            Menu.SetActive(false);
-            menuTrack = false;
-        }
+		if (isLeft == true) {
+			if (menuTrack == false)
+			{
+				Menu.SetActive(true);
+				menuTrack = true;
+			}
+			else if (menuTrack == true)
+			{
+				Menu.SetActive(false);
+				menuTrack = false;
+			}
+		}
+		else {
+			if (rmenuTrack == false)
+			{
+				RMenu.SetActive(true);
+				rmenuTrack = true;
+			}
+			else if (rmenuTrack == true)
+			{
+				RMenu.SetActive(false);
+				rmenuTrack = false;
+			}
+		}
     }
 
     IEnumerator DamageCoroutine() {
@@ -95,17 +113,19 @@ public class PadConfig : MonoBehaviour {
 			else if (touchpad.y < -0.7f)
 			{
 				// pressing down
+				StartCoroutine(DamageCoroutine());
 			}
 
 			if (touchpad.x > 0.7f)
 			{
-                StartCoroutine(HealthCoroutine());
+                StartCoroutine(DamageCoroutine());
 
             }
 
 			else if (touchpad.x < -0.7f)
 			{
 				// pressing left
+				StartCoroutine(DamageCoroutine());
 
 			}
 		}

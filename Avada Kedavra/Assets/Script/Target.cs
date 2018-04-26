@@ -13,6 +13,9 @@ public class Target : MonoBehaviour {
     public bool isGoal = false;
     public GameObject bitch;
     public bool isEnemy = false;
+	public bool callOnce = false;
+
+	public GameObject menuManager;
 
     void Start()
     {
@@ -29,7 +32,7 @@ public class Target : MonoBehaviour {
         if (c.gameObject.CompareTag("Bullet") == true && isEnemy == true)
         {
             Debug.Log("collision entered");
-            TakeDamage(GameObject.FindGameObjectWithTag("Wizard").GetComponent<GunController>().damage);
+            //TakeDamage(GameObject.FindGameObjectWithTag("Wizard").GetComponentInChildren<GunController>().damage);
 
             Destroy(c.gameObject);
         }
@@ -40,14 +43,18 @@ public class Target : MonoBehaviour {
         if (c.gameObject.CompareTag("Bullet") == true && isEnemy == true)
         {
             Debug.Log("FUCKING HIT");
-            TakeDamage(30);
+			float dmg = GameObject.FindGameObjectWithTag("Wizard").GetComponentInChildren<GunController>().damage;
+			Debug.Log("DAMAGE: "+dmg);
+            TakeDamage(dmg);
 
             Destroy(c.gameObject);
         }
         else if (isGoal == true)
         {
             //Debug.Log("slashed");
-            TakeDamage(1);
+			if (dead == false) {
+				TakeDamage(2);
+			}
             Destroy(c.gameObject);
         }
     }
@@ -63,7 +70,10 @@ public class Target : MonoBehaviour {
 			}
             else if (isGoal == true)
             {
-                scoreManager.GetComponent<Score>().subScore(50);
+				if (callOnce == false) {
+					scoreManager.GetComponent<Score>().subScore(10);
+					callOnce = true;
+				}   
             }
         }
 	}

@@ -1937,7 +1937,7 @@ namespace AirSig
 					else if (String.Equals(gesture,"C")) {
 						isC = true;
 					}
-					else if (String.Equals(gesture,"DOWN")) {
+					else if (String.Equals(gesture,"DOWN") && score >= .5f) {
 						isDown = true;
 					}
                     if (null != furtherAction && null != bundle) {
@@ -2584,6 +2584,7 @@ namespace AirSig
 			else if (isDown == true)
 			{
                 //gestureManager.GetComponent<BrianGesture>().Fire();
+				StartCoroutine(guncontroller.GetComponent<GunController>().notime(1));
                 isDown = false;
 			}
 

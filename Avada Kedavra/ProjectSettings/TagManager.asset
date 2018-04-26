@@ -15,6 +15,7 @@ TagManager:
   - Wizard
   - Bullet
   - MenuText
+  - MenuManager
   layers:
   - Default
   - TransparentFX
